@@ -137,26 +137,26 @@ header .subtitle { font-size: 12px; color: #aaa; margin-top: 2px; }
 
 <script>
 const firebaseConfig = {
-  apiKey:            "AIzaSyCOuHW6j4fZA8i8yJ0EX1Vygkb7MLc07Ks",
-  authDomain:        "app-delivery-cd212.firebaseapp.com",
-  databaseURL:       "https://app-delivery-cd212-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "app-delivery-cd212",
-  storageBucket:     "app-delivery-cd212.firebasestorage.app",
-  messagingSenderId: "850680347712",
-  appId:             "1:850680347712:web:96cd6a09ae955a18b0b3a5"
+  apiKey:            "<FIREBASE_API_KEY>",
+  authDomain:        "<FIREBASE_AUTH_DOMAIN>",
+  databaseURL:       "<FIREBASE_DATABASE_URL>",
+  projectId:         "<FIREBASE_PROJECT_ID>",
+  storageBucket:     "<FIREBASE_PROJECT_ID>.firebasestorage.app",
+  messagingSenderId: "<FIREBASE_SENDER_ID>",
+  appId:             "1:<FIREBASE_SENDER_ID>:web:96cd6a09ae955a18b0b3a5"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const CONFIG = {
-  ORIGIN:          '126 Robinson Rd East, Geebung QLD 4034',
-  DESTINATION:     '126 Robinson Rd East, Geebung QLD 4034',
+  ORIGIN:          '<WAREHOUSE_ADDRESS>',
+  DESTINATION:     '<WAREHOUSE_ADDRESS>',
   WORK_START_HOUR: 8,
   WORK_END_HOUR:   17,
 };
 
-// Warehouse coordinates (126 Robinson Rd East, Geebung QLD 4034)
+// Warehouse coordinates (<WAREHOUSE_ADDRESS>)
 const WAREHOUSE_COORDS = { lat: -27.3853, lng: 153.0340 };
 
 let map, dirService, dirRenderer, stops = [], mapVisible = true, routeFinishTime = null;
@@ -566,6 +566,6 @@ document.getElementById('today-date').textContent =
   new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9iHlDICgf0r7hJELcaLZxpjgX6jhymWU&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=<GOOGLE_MAPS_API_KEY>&callback=initMap" async defer></script>
 </body>
 </html>
