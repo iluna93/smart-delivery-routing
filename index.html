@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr. Treadmill — Driver View</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; padding-bottom: 80px; }
+
+header { background: #1a1a2e; color: white; padding: 14px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+header h1 { font-size: 17px; font-weight: 700; }
+header .subtitle { font-size: 12px; color: #aaa; margin-top: 2px; }
+
+.progress-section { background: #1a1a2e; padding: 10px 16px 14px; border-top: 1px solid #2d2d4e; }
+.progress-track { background: #2d2d4e; border-radius: 4px; height: 8px; }
+.progress-fill { background: #4CAF50; height: 8px; border-radius: 4px; transition: width 0.4s; }
+.progress-label { color: #aaa; font-size: 12px; margin-top: 6px; display: flex; justify-content: space-between; }
+
+#map { height: 220px; width: 100%; }
+.map-toggle { background: #2d2d4e; color: #aaa; border: none; padding: 8px; font-size: 12px; width: 100%; cursor: pointer; letter-spacing: 0.5px; }
+
+.stops-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.stop-card { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.07); transition: opacity 0.3s; }
+.stop-card.current { border: 2px solid #4CAF50; box-shadow: 0 4px 16px rgba(76,175,80,0.2); }
+.stop-card.completed { opacity: 0.45; }
+.stop-card.cancelled { display: none; }
+
+.stop-header { padding: 13px 14px; display: flex; align-items: flex-start; gap: 11px; }
+.stop-num { background: #1a1a2e; color: white; min-width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+.stop-num.done { background: #4CAF50; }
+.stop-meta { flex: 1; }
+.stop-name { font-weight: 700; font-size: 15px; color: #1a1a2e; }
+.stop-addr { color: #777; font-size: 12px; margin-top: 3px; line-height: 1.4; }
+.service-badge { padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.badge-delivery  { background: #e8f5e9; color: #2e7d32; }
+.badge-repair    { background: #fff3e0; color: #e65100; }
+.badge-relocation{ background: #e3f2fd; color: #1565c0; }
+.badge-pickup    { background: #fce4ec; color: #c62828; }
+
+/* Fixed time tag */
+.fixed-time-tag { display: flex; align-items: center; gap: 7px; padding: 7px 14px; background: #fff3e0; border-left: 4px solid #FF9800; font-size: 12px; font-weight: 700; color: #e65100; }
+.fixed-time-tag.late { background: #ffebee; border-left-color: #e53935; color: #c62828; }
+
+.stop-details { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 4px; }
+.detail { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #555; }
+.detail-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.detail a { color: #1565c0; text-decoration: none; }
+.completed-note { color: #4CAF50; font-weight: 600; font-size: 13px; }
+
+.stop-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #f0f0f0; }
+.btn-nav  { flex: 1; background: #1a1a2e; color: white; border: none; padding: 11px 8px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-done { flex: 1; background: #4CAF50; color: white; border: none; padding: 11px 8px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-done:disabled { background: #bbb; cursor: default; }
+.btn-skip { flex: 1; background: white; color: #e53935; border: 1.5px solid #e53935; padding: 11px 8px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: white; border-radius: 16px; padding: 22px; width: 100%; max-width: 360px; }
+.modal-box h3 { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+.modal-box p { font-size: 13px; color: #777; margin-bottom: 14px; }
+.modal-box textarea { width: 100%; border: 1.5px solid #ddd; border-radius: 8px; padding: 10px; font-size: 14px; min-height: 90px; resize: none; font-family: inherit; }
+.modal-box textarea:focus { outline: none; border-color: #1a1a2e; }
+.modal-btns { display: flex; gap: 8px; margin-top: 12px; }
+.modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+.modal-btn-back { background: white; border: 1.5px solid #ddd !important; color: #555; }
+.modal-btn-confirm { background: #e53935; color: white; }
+
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 -2px 12px rgba(0,0,0,0.3); }
+.eta-block .label { font-size: 11px; color: #888; }
+.eta-block .value { font-size: 17px; font-weight: 700; color: white; margin-top: 1px; }
+.live-dot { display: inline-block; width: 8px; height: 8px; background: #4CAF50; border-radius: 50%; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.empty { text-align: center; padding: 50px 20px; color: #aaa; font-size: 15px; }
+.error-msg { background: #ffebee; color: #c62828; padding: 14px 16px; margin: 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+.high-priority::after { content: " ⚡"; }
+
+.stop-travel { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 7px 14px; background: #f4f6f8; border-top: 1px solid #eee; }
+.travel-tag { font-size: 11px; color: #555; }
+.travel-tag.arrive { color: #1565c0; font-weight: 700; }
+.travel-tag.warn   { color: #e65100; font-weight: 700; }
+
+.new-stop-banner { background: #e8f5e9; border-left: 4px solid #4CAF50; padding: 10px 16px; margin: 0; font-size: 13px; color: #2e7d32; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏃 Mr. Treadmill — Driver Routes</h1>
+  <div class="subtitle" id="today-date"></div>
+</header>
+
+<div class="progress-section">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="progress-label">
+    <span id="progress-text">Connecting...</span>
+    <span id="eta-label"></span>
+  </div>
+</div>
+
+<div id="route-status" style="display:none;background:#e3f2fd;color:#1565c0;padding:8px 16px;font-size:12px;font-weight:600;text-align:center;"></div>
+<div id="map"></div>
+<button class="map-toggle" id="map-toggle-btn" onclick="toggleMap()">▲ Hide Map</button>
+
+<div class="stops-list" id="stops-list">
+  <div class="empty">Connecting to route...</div>
+</div>
+
+<div class="bottom-bar">
+  <div class="eta-block">
+    <div class="label"><span class="live-dot"></span>Live</div>
+    <div class="value" id="eta-time">--:--</div>
+  </div>
+  <div class="eta-block" style="text-align:right">
+    <div class="label">Est. finish</div>
+    <div class="value" id="eta-finish">--:--</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="skip-modal">
+  <div class="modal-box">
+    <h3>⚠️ Skip this stop?</h3>
+    <p>Enter a reason — the office will see it immediately.</p>
+    <textarea id="skip-reason" placeholder="e.g. Customer not home, no access, wrong address..."></textarea>
+    <div class="modal-btns">
+      <button class="modal-btn-back" onclick="closeSkipModal()">Back</button>
+      <button class="modal-btn-confirm" onclick="confirmSkip()">Skip Stop</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey:            "AIzaSyCOuHW6j4fZA8i8yJ0EX1Vygkb7MLc07Ks",
+  authDomain:        "app-delivery-cd212.firebaseapp.com",
+  databaseURL:       "https://app-delivery-cd212-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "app-delivery-cd212",
+  storageBucket:     "app-delivery-cd212.firebasestorage.app",
+  messagingSenderId: "850680347712",
+  appId:             "1:850680347712:web:96cd6a09ae955a18b0b3a5"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const CONFIG = {
+  ORIGIN:          '126 Robinson Rd East, Geebung QLD 4034',
+  DESTINATION:     '126 Robinson Rd East, Geebung QLD 4034',
+  WORK_START_HOUR: 8,
+  WORK_END_HOUR:   17,
+};
+
+// Warehouse coordinates (126 Robinson Rd East, Geebung QLD 4034)
+const WAREHOUSE_COORDS = { lat: -27.3853, lng: 153.0340 };
+
+let map, dirService, dirRenderer, stops = [], mapVisible = true, routeFinishTime = null;
+let prevStopCount = 0;
+
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 11, center: { lat: -27.39, lng: 153.03 },
+    mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+  });
+  dirService  = new google.maps.DirectionsService();
+  dirRenderer = new google.maps.DirectionsRenderer({ map, suppressMarkers: false });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  db.ref('stops').on('value', snapshot => {
+    const data = snapshot.val() || {};
+    const newStops = Object.entries(data)
+      .map(([key, s]) => ({ key, ...s }))
+      .filter(s => s.address && (!s.date || s.date === todayStr))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const activeCount = newStops.filter(s => s.status !== 'Cancelled').length;
+    if (prevStopCount > 0 && activeCount > prevStopCount) showNewStopBanner();
+    prevStopCount = activeCount;
+
+    stops = newStops;
+    updateProgress();
+    renderStops();
+    calcRoute();
+  }, err => {
+    document.getElementById('stops-list').innerHTML =
+      `<div class="error-msg">⚠️ Connection error: ${err.message}</div>`;
+  });
+}
+
+function showNewStopBanner() {
+  const existing = document.querySelector('.new-stop-banner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.className = 'new-stop-banner';
+  banner.textContent = '📍 New stop added by office — route updated';
+  document.getElementById('stops-list').prepend(banner);
+  setTimeout(() => banner.remove(), 5000);
+}
+
+// ── Time Helpers ─────────────────────────────────────────────────────────────
+function formatTime(date) {
+  return date.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function parseFixedTime(timeStr) {
+  // timeStr is "HH:MM" (24h from <input type="time">)
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function formatTime12(timeStr) {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 || 12;
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+// Straight-line travel time estimate using lat/lng (proxy for road distance)
+function estimateTravelMin(from, to) {
+  if (!from || !to) return 20;
+  const dLat = (to.lat - from.lat) * 111;        // km per degree lat
+  const dLng = (to.lng - from.lng) * 85;         // km per degree lng at ~-27°
+  const distKm = Math.sqrt(dLat * dLat + dLng * dLng);
+  return Math.max(5, Math.round(distKm / 40 * 60) + 5); // 40 km/h avg + 5 min buffer
+}
+
+// ── Route Ordering Algorithm ─────────────────────────────────────────────────
+// Returns ordered stop list when fixed-time stops exist, or null to use Maps optimizeWaypoints
+function buildRouteOrder(pending, geocodedMap, departureTime) {
+  const fixedStops = pending
+    .filter(s => s.fixed && s.fixedTime)
+    .map(s => ({ ...s, deadline: parseFixedTime(s.fixedTime) }))
+    .filter(s => s.deadline)
+    .sort((a, b) => a.deadline - b.deadline);
+
+  if (fixedStops.length === 0) return null;
+
+  const flexStops    = pending.filter(s => !s.fixed || !s.fixedTime);
+  const ordered      = [];
+  const unscheduled  = [...flexStops];
+  const pendingFixed = [...fixedStops];
+  let currentTime    = new Date(departureTime);
+  let currentCoords  = WAREHOUSE_COORDS;
+
+  while (unscheduled.length > 0 || pendingFixed.length > 0) {
+    const nextFixed = pendingFixed[0];
+
+    if (nextFixed) {
+      // Try to fit a flexible stop before the next fixed deadline
+      let bestFlex     = null;
+      let bestTravelMin = Infinity;
+
+      for (const flex of unscheduled) {
+        const flexCoords  = geocodedMap[flex.key];
+        if (!flexCoords) continue;
+        const toFlex      = estimateTravelMin(currentCoords, flexCoords);
+        const onSite      = flex.duration || 30;
+        const fixedCoords = geocodedMap[nextFixed.key];
+        const toFixed     = estimateTravelMin(flexCoords, fixedCoords);
+        const arriveFixed = new Date(currentTime.getTime() + (toFlex + onSite + toFixed) * 60000);
+
+        if (arriveFixed <= nextFixed.deadline && toFlex < bestTravelMin) {
+          bestFlex      = flex;
+          bestTravelMin = toFlex;
+        }
+      }
+
+      if (bestFlex) {
+        ordered.push(bestFlex);
+        unscheduled.splice(unscheduled.indexOf(bestFlex), 1);
+        const coords = geocodedMap[bestFlex.key] || currentCoords;
+        currentTime  = new Date(currentTime.getTime() + (bestTravelMin + (bestFlex.duration || 30)) * 60000);
+        currentCoords = coords;
+      } else {
+        // No flex stop fits — go to the fixed stop now
+        ordered.push(nextFixed);
+        pendingFixed.shift();
+        const coords     = geocodedMap[nextFixed.key] || currentCoords;
+        const travelMin  = estimateTravelMin(currentCoords, coords);
+        const arriveTime = new Date(currentTime.getTime() + travelMin * 60000);
+        // Wait at the location if arriving early
+        currentTime   = new Date(Math.max(arriveTime.getTime(), nextFixed.deadline.getTime()) + (nextFixed.duration || 30) * 60000);
+        currentCoords = coords;
+      }
+    } else {
+      // No more fixed stops — greedily pick the nearest remaining flexible stop
+      let bestFlex = null;
+      let bestDist = Infinity;
+      for (const flex of unscheduled) {
+        const coords = geocodedMap[flex.key];
+        if (!coords) continue;
+        const dist = estimateTravelMin(currentCoords, coords);
+        if (dist < bestDist) { bestFlex = flex; bestDist = dist; }
+      }
+      if (bestFlex) {
+        ordered.push(bestFlex);
+        unscheduled.splice(unscheduled.indexOf(bestFlex), 1);
+        currentCoords = geocodedMap[bestFlex.key] || currentCoords;
+      } else {
+        ordered.push(...unscheduled); // append any ungeocoded stops
+        break;
+      }
+    }
+  }
+
+  return ordered;
+}
+
+// ── Progress ─────────────────────────────────────────────────────────────────
+function updateProgress() {
+  const active = stops.filter(s => s.status !== 'Cancelled');
+  const done   = stops.filter(s => s.status === 'Completed').length;
+  const pct    = active.length ? (done / active.length) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${done} of ${active.length} stops completed`;
+
+  const workEnd = new Date(); workEnd.setHours(CONFIG.WORK_END_HOUR, 0, 0, 0);
+  const etaEl   = document.getElementById('eta-finish');
+  const lblEl   = document.getElementById('eta-label');
+
+  if (routeFinishTime) {
+    etaEl.textContent = formatTime(routeFinishTime);
+    etaEl.style.color = routeFinishTime > workEnd ? '#e94560' : 'white';
+    lblEl.textContent = routeFinishTime > workEnd ? '⚠️ After 5PM' : '';
+  } else {
+    const pending  = stops.filter(s => s.status === 'Pending' || s.status === 'In Progress');
+    const totalMin = pending.reduce((s, x) => s + (x.duration || 30) + 15, 0);
+    const now      = new Date();
+    const wStart   = new Date(); wStart.setHours(CONFIG.WORK_START_HOUR, 0, 0, 0);
+    const from     = now < wStart ? wStart : now;
+    const eta      = new Date(from.getTime() + totalMin * 60000);
+    etaEl.textContent = formatTime(eta);
+    etaEl.style.color = eta > workEnd ? '#e94560' : 'white';
+    lblEl.textContent = eta > workEnd ? '⚠️ After 5PM' : `~${totalMin} min left`;
+  }
+}
+
+// ── Render Stops ─────────────────────────────────────────────────────────────
+function renderStops() {
+  const active = stops.filter(s => s.status !== 'Cancelled');
+  if (!active.length) {
+    document.getElementById('stops-list').innerHTML = '<div class="empty">✅ No stops assigned yet.<br><small>Waiting for office to add stops...</small></div>';
+    return;
+  }
+
+  const currentIdx = active.findIndex(s => s.status === 'Pending' || s.status === 'In Progress');
+
+  document.getElementById('stops-list').innerHTML = active.map((s, idx) => {
+    const isCurrent   = idx === currentIdx;
+    const isCompleted = s.status === 'Completed';
+    const svc         = (s.service || 'Delivery').toLowerCase();
+    const nameClass   = s.priority === 'High' ? 'stop-name high-priority' : 'stop-name';
+    const cardClass   = isCompleted ? 'completed' : (isCurrent ? 'current' : '');
+
+    const fixedTag = s.fixed && s.fixedTime
+      ? `<div class="fixed-time-tag ${s.fixedWarning ? 'late' : ''}">⏰ Must arrive: ${formatTime12(s.fixedTime)}${s.fixedWarning ? ' — ⚠️ RUNNING LATE' : ''}</div>`
+      : '';
+
+    const travelBar = s.travelMin !== undefined ? `
+      <div class="stop-travel">
+        <span class="travel-tag">🚗 ${s.travelMin} min${idx === 0 ? ' from warehouse' : ' from prev'}</span>
+        <span class="travel-tag">📏 ${s.distanceKm} km</span>
+        <span class="travel-tag arrive${s.lateWarning ? ' warn' : ''}">🕐 Arrive ${formatTime(s.arrivalTime)}${s.lateWarning ? ' ⚠️' : ''}</span>
+        <span class="travel-tag">🚪 Depart ${formatTime(s.departureTime)} (${s.duration} min on site)</span>
+      </div>` : '';
+
+    return `
+    <div class="stop-card ${cardClass}" id="stop-${s.key}">
+      <div class="stop-header">
+        <div class="stop-num ${isCompleted ? 'done' : ''}">${isCompleted ? '✓' : idx + 1}</div>
+        <div class="stop-meta">
+          <div class="${nameClass}">${s.name}</div>
+          <div class="stop-addr">${s.address}</div>
+        </div>
+        <span class="service-badge badge-${svc}">${s.service}</span>
+      </div>
+      ${fixedTag}
+      ${travelBar}
+      <div class="stop-details">
+        ${s.phone    ? `<div class="detail"><span class="detail-icon">📞</span><a href="tel:${s.phone}">${s.phone}</a></div>` : ''}
+        ${s.time     ? `<div class="detail"><span class="detail-icon">🕐</span>${s.time}</div>` : ''}
+        ${s.duration ? `<div class="detail"><span class="detail-icon">⏱</span>Est. ${s.duration} min on site</div>` : ''}
+        ${s.notes    ? `<div class="detail"><span class="detail-icon">📝</span>${s.notes}</div>` : ''}
+        ${isCompleted ? `<div class="detail completed-note"><span class="detail-icon">✅</span>Completed at ${s.doneAt}</div>` : ''}
+      </div>
+      ${!isCompleted ? `
+      <div class="stop-actions">
+        <button class="btn-nav"  onclick="navTo('${s.address}')">🗺️ Navigate</button>
+        <button class="btn-done" id="btn-${s.key}" onclick="markDone('${s.key}')">✅ Done</button>
+        <button class="btn-skip" onclick="markSkipped('${s.key}')">✗ Skip</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Navigation & Actions ─────────────────────────────────────────────────────
+function navTo(addr) {
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}&travelmode=driving`, '_blank');
+}
+
+async function markDone(key) {
+  const btn = document.getElementById(`btn-${key}`);
+  if (btn) btn.disabled = true;
+  const now = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:true});
+  await db.ref(`stops/${key}`).update({ status: 'Completed', doneAt: now });
+}
+
+let _skipKey = null;
+function markSkipped(key) {
+  _skipKey = key;
+  document.getElementById('skip-reason').value = '';
+  document.getElementById('skip-modal').classList.add('open');
+  setTimeout(() => document.getElementById('skip-reason').focus(), 100);
+}
+function closeSkipModal() {
+  document.getElementById('skip-modal').classList.remove('open');
+  _skipKey = null;
+}
+async function confirmSkip() {
+  const reason = document.getElementById('skip-reason').value.trim();
+  if (!reason) {
+    document.getElementById('skip-reason').style.border = '1.5px solid #e53935';
+    document.getElementById('skip-reason').placeholder = 'Required — enter a reason before skipping';
+    return;
+  }
+  const key = _skipKey;
+  closeSkipModal();
+  await db.ref(`stops/${key}`).update({ status: 'Cancelled', cancelReason: reason });
+}
+
+// ── Geocoding ─────────────────────────────────────────────────────────────────
+const _geocoderCache = {};
+let _geocoderInstance = null;
+function geocodeAddress(address) {
+  if (_geocoderCache[address]) return Promise.resolve(_geocoderCache[address]);
+  if (!_geocoderInstance) _geocoderInstance = new google.maps.Geocoder();
+  return new Promise(resolve => {
+    _geocoderInstance.geocode({ address, region: 'AU' }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const loc = results[0].geometry.location;
+        const coords = { lat: loc.lat(), lng: loc.lng() };
+        _geocoderCache[address] = coords;
+        resolve(coords);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+// ── Route Calculation ─────────────────────────────────────────────────────────
+async function calcRoute() {
+  const pending   = stops.filter(s => s.status !== 'Cancelled' && s.status !== 'Completed');
+  const completed = stops.filter(s => s.status === 'Completed' || s.status === 'Cancelled');
+  if (pending.length < 2) { if (pending.length === 1) renderStops(); return; }
+
+  setStatus('🔄 Calculating route...');
+
+  const now      = new Date();
+  const wStart   = new Date(); wStart.setHours(CONFIG.WORK_START_HOUR, 0, 0, 0);
+  const workEnd  = new Date(); workEnd.setHours(CONFIG.WORK_END_HOUR, 0, 0, 0);
+  const departure = now < wStart ? wStart : now;
+
+  // Geocode all pending stops
+  const geocoded = await Promise.all(pending.map(async s => ({ ...s, coords: await geocodeAddress(s.address) })));
+  const geocodedMap = {};
+  geocoded.forEach(s => { geocodedMap[s.key] = s.coords; });
+
+  // Determine if we have fixed-time stops
+  const hasFixed      = pending.some(s => s.fixed && s.fixedTime);
+  const orderedByAlgo = hasFixed ? buildRouteOrder(pending, geocodedMap, departure) : null;
+  const waypoints     = (orderedByAlgo || pending).filter(s => geocodedMap[s.key]);
+
+  if (waypoints.length < 1) { setStatus('⚠️ Could not geocode enough addresses'); return; }
+
+  setStatus(hasFixed ? '🔄 Calculating time-constrained route...' : '🔄 Optimising route with live traffic...');
+
+  dirService.route({
+    origin:            CONFIG.ORIGIN,
+    destination:       CONFIG.DESTINATION,
+    waypoints:         waypoints.map(s => ({ location: s.address, stopover: true })),
+    optimizeWaypoints: !orderedByAlgo, // Maps optimises only when no fixed stops
+    travelMode:        google.maps.TravelMode.DRIVING,
+    region:            'AU',
+    drivingOptions: {
+      departureTime: departure,
+      trafficModel:  google.maps.TrafficModel.BEST_GUESS,
+    },
+  }, (result, routeStatus) => {
+    if (routeStatus !== 'OK') { setStatus(`⚠️ Route error: ${routeStatus}`); return; }
+
+    const route = result.routes[0];
+    const legs  = route.legs;
+
+    // If Maps optimised: respect its waypoint_order. If we pre-ordered: order is already set.
+    const finalOrder = orderedByAlgo
+      ? waypoints
+      : route.waypoint_order.map(i => waypoints[i]);
+
+    let currentMs = departure.getTime();
+    finalOrder.forEach((s, i) => {
+      const leg       = legs[i];
+      const travelSec = (leg.duration_in_traffic || leg.duration).value;
+      currentMs      += travelSec * 1000;
+      s.arrivalTime   = new Date(currentMs);
+      s.travelMin     = Math.round(travelSec / 60);
+      s.distanceKm    = (leg.distance.value / 1000).toFixed(1);
+      s.lateWarning   = s.arrivalTime > workEnd;
+
+      if (s.fixed && s.fixedTime) {
+        const deadline = parseFixedTime(s.fixedTime);
+        s.fixedWarning = deadline && s.arrivalTime > deadline;
+      }
+
+      currentMs      += (s.duration || 30) * 60000;
+      s.departureTime = new Date(currentMs);
+    });
+
+    const returnLeg    = legs[legs.length - 1];
+    routeFinishTime    = new Date(currentMs + (returnLeg.duration_in_traffic || returnLeg.duration).value * 1000);
+
+    const drivingSec   = legs.slice(0, -1).reduce((sum, l) => sum + (l.duration_in_traffic || l.duration).value, 0);
+    const totalDistKm  = Math.round(legs.reduce((sum, l) => sum + l.distance.value, 0) / 1000);
+    const lateCount    = finalOrder.filter(s => s.lateWarning).length;
+    const fixedLate    = finalOrder.filter(s => s.fixedWarning).length;
+
+    stops = [...finalOrder, ...completed];
+    dirRenderer.setDirections(result);
+
+    let msg = `✅ ${finalOrder.length} stops · 🚗 ${Math.round(drivingSec / 60)} min driving · ${totalDistKm} km · 🏁 Back ${formatTime(routeFinishTime)}`;
+    if (hasFixed) msg += ' · ⏰ Time-constrained';
+    if (fixedLate) msg = `⚠️ ${fixedLate} fixed stop${fixedLate > 1 ? 's' : ''} may be late! ` + msg;
+    else if (lateCount) msg += ` · ⚠️ ${lateCount} stop${lateCount > 1 ? 's' : ''} after 5PM`;
+
+    setStatus(msg);
+    renderStops();
+    updateProgress();
+  });
+}
+
+function setStatus(msg) {
+  const el = document.getElementById('route-status');
+  el.style.display = 'block';
+  el.textContent   = msg;
+  el.style.background = msg.startsWith('✅') ? '#e8f5e9' : msg.startsWith('⚠️') ? '#ffebee' : '#e3f2fd';
+  el.style.color      = msg.startsWith('✅') ? '#2e7d32' : msg.startsWith('⚠️') ? '#c62828' : '#1565c0';
+}
+
+function toggleMap() {
+  mapVisible = !mapVisible;
+  document.getElementById('map').style.display = mapVisible ? 'block' : 'none';
+  document.getElementById('map-toggle-btn').textContent = mapVisible ? '▲ Hide Map' : '▼ Show Map';
+}
+
+document.getElementById('today-date').textContent =
+  new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+</script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9iHlDICgf0r7hJELcaLZxpjgX6jhymWU&callback=initMap" async defer></script>
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr. Treadmill — Office Panel</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; }
+
+header { background: #1a1a2e; color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.3); flex-wrap: wrap; gap: 10px; }
+header h1 { font-size: 18px; font-weight: 700; }
+.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.last-updated { font-size: 12px; color: #888; }
+.btn-refresh { background: #e94560; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-add-stop { background: #4CAF50; color: white; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
+.btn-add-stop:hover { background: #43a047; }
+
+.stats-bar { display: flex; gap: 12px; padding: 16px 24px; background: white; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
+.stat-card { flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 10px; padding: 12px 16px; text-align: center; }
+.stat-card .num { font-size: 28px; font-weight: 800; }
+.stat-card .lbl { font-size: 12px; color: #888; margin-top: 2px; }
+.stat-total     .num { color: #1a1a2e; }
+.stat-pending   .num { color: #FF9800; }
+.stat-progress  .num { color: #2196F3; }
+.stat-completed .num { color: #4CAF50; }
+.stat-cancelled .num { color: #F44336; }
+
+/* Date navigation */
+.date-nav { display: flex; align-items: center; justify-content: center; gap: 10px; background: #f8f9fa; padding: 11px 24px; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
+.date-nav-btn { background: white; border: 1.5px solid #ddd; color: #1a1a2e; padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 600; }
+.date-nav-btn:hover { background: #f0f2f5; border-color: #bbb; }
+.date-nav-btn.active-today { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+.date-label { font-size: 14px; font-weight: 700; color: #1a1a2e; min-width: 220px; text-align: center; }
+.date-picker-input { border: 1.5px solid #ddd; border-radius: 8px; padding: 7px 10px; font-size: 13px; font-family: inherit; color: #1a1a2e; cursor: pointer; outline: none; background: white; }
+
+.main { display: grid; grid-template-columns: 1fr 400px; height: calc(100vh - 186px); }
+.table-section { overflow-y: auto; padding: 16px 24px; }
+#map { height: 100%; width: 100%; }
+
+h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; }
+
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.07); font-size: 13px; }
+thead { background: #1a1a2e; color: white; }
+th { padding: 11px 14px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+td { padding: 11px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+tr.completed td { opacity: 0.5; }
+tr.cancelled td { text-decoration: line-through; opacity: 0.4; }
+
+.service-badge { padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.badge-delivery  { background: #e8f5e9; color: #2e7d32; }
+.badge-repair    { background: #fff3e0; color: #e65100; }
+.badge-relocation{ background: #e3f2fd; color: #1565c0; }
+.badge-pickup    { background: #fce4ec; color: #c62828; }
+
+.status-badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.status-pending   { background: #fff8e1; color: #f57f17; }
+.status-progress  { background: #e3f2fd; color: #1565c0; }
+.status-completed { background: #e8f5e9; color: #2e7d32; }
+.status-cancelled { background: #ffebee; color: #c62828; }
+
+.fixed-badge { display: inline-block; background: #fff3e0; color: #e65100; padding: 2px 7px; border-radius: 12px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+
+.btn-cancel { background: none; border: 1px solid #F44336; color: #F44336; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+.btn-cancel:hover { background: #ffebee; }
+.btn-delete { background: none; border: none; color: #aaa; font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 4px; margin-left: 2px; }
+.btn-delete:hover { color: #e53935; background: #ffebee; }
+
+.empty { text-align: center; padding: 60px; color: #aaa; }
+.loading { padding: 40px; text-align: center; color: #999; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: white; border-radius: 16px; padding: 26px; width: 100%; max-width: 500px; margin: auto; }
+.modal-box h3 { font-size: 17px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+.modal-date-hint { font-size: 12px; color: #888; margin-bottom: 16px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+.form-group label { font-size: 11px; font-weight: 700; color: #777; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group input, .form-group select { border: 1.5px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none; color: #1a1a2e; }
+.form-group input:focus, .form-group select:focus { border-color: #1a1a2e; }
+.form-group input.error { border-color: #e53935; }
+.modal-btns { display: flex; gap: 8px; margin-top: 6px; }
+.modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+.btn-modal-back { background: white; border: 1.5px solid #ddd !important; color: #555; }
+.btn-modal-save { background: #1a1a2e; color: white; }
+.btn-modal-save:hover { background: #2d2d4e; }
+
+/* Fixed time toggle */
+.fixed-toggle-label { display: flex; align-items: center; gap: 9px; padding: 10px 13px; background: #f8f9fa; border: 1.5px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px; color: #555; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.fixed-toggle-label input[type=checkbox] { width: 16px; height: 16px; accent-color: #FF9800; cursor: pointer; flex-shrink: 0; }
+.fixed-toggle-label.active { background: #fff8e1; border-color: #FFB300; color: #e65100; }
+.fixed-time-picker { margin-top: 8px; }
+.fixed-time-picker input[type=time] { border: 1.5px solid #FF9800; border-radius: 8px; padding: 10px 12px; font-size: 15px; font-family: inherit; outline: none; color: #1a1a2e; width: 100%; }
+.fixed-time-hint { color: #e65100; font-size: 11px; margin-top: 5px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } #map { height: 300px; } }
+@media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+.pac-container { z-index: 9999 !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏃 Mr. Treadmill — Office Panel</h1>
+  <div class="header-right">
+    <button class="btn-add-stop" onclick="openAddModal()">➕ Add Stop</button>
+    <span class="last-updated" id="last-updated">Connecting...</span>
+    <button class="btn-refresh" onclick="filterAndRender()">↻ View</button>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card stat-total">    <div class="num" id="stat-total">—</div><div class="lbl">Total</div></div>
+  <div class="stat-card stat-pending">  <div class="num" id="stat-pending">—</div><div class="lbl">Pending</div></div>
+  <div class="stat-card stat-progress"> <div class="num" id="stat-progress">—</div><div class="lbl">In Progress</div></div>
+  <div class="stat-card stat-completed"><div class="num" id="stat-completed">—</div><div class="lbl">Completed</div></div>
+  <div class="stat-card stat-cancelled"><div class="num" id="stat-cancelled">—</div><div class="lbl">Cancelled</div></div>
+</div>
+
+<!-- Date navigation -->
+<div class="date-nav">
+  <button class="date-nav-btn" onclick="changeDate(-1)">← Prev</button>
+  <span class="date-label" id="date-label"></span>
+  <input type="date" class="date-picker-input" id="date-picker-input" onchange="onDatePickerChange(this.value)" title="Jump to date">
+  <button class="date-nav-btn" id="btn-today" onclick="goToday()">Today</button>
+  <button class="date-nav-btn" onclick="changeDate(1)">Next →</button>
+</div>
+
+<div class="main">
+  <div class="table-section">
+    <h2 id="table-heading">Today's Stops</h2>
+    <div id="table-container"><div class="loading">Connecting to database...</div></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<!-- Add Stop Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal-box">
+    <h3>➕ Add New Stop</h3>
+    <div class="modal-date-hint" id="modal-date-hint"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input id="f-name" placeholder="John Smith">
+      </div>
+      <div class="form-group">
+        <label>Service Type *</label>
+        <select id="f-service">
+          <option>Delivery</option>
+          <option>Repair</option>
+          <option>Relocation</option>
+          <option>Pickup</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Full Address *</label>
+      <input id="f-address" placeholder="123 Main St, Geebung QLD 4034">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone</label>
+        <input id="f-phone" placeholder="0412 345 678" type="tel">
+      </div>
+      <div class="form-group" id="timewindow-group">
+        <label>Time Window</label>
+        <input id="f-time" placeholder="9:00 AM – 11:00 AM">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="fixed-toggle-label" id="fixed-toggle-label">
+        <input type="checkbox" id="f-fixed-checkbox" onchange="toggleFixedTime(this)">
+        <span>⏰ Customer has a fixed arrival time</span>
+      </label>
+      <div class="fixed-time-picker" id="fixed-time-picker" style="display:none">
+        <input id="f-fixed-time" type="time" step="900">
+        <div class="fixed-time-hint">Driver must arrive at this exact time. Route will be calculated around this constraint.</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="f-priority">
+          <option value="Normal">Normal</option>
+          <option value="High">High ⚡</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Est. Duration (minutes)</label>
+        <input id="f-duration" type="number" value="30" min="5" max="480">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input id="f-notes" placeholder="Leave at door, call before arriving...">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-back" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-modal-save" onclick="saveStop()">✓ Add Stop</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey:            "AIzaSyCOuHW6j4fZA8i8yJ0EX1Vygkb7MLc07Ks",
+  authDomain:        "app-delivery-cd212.firebaseapp.com",
+  databaseURL:       "https://app-delivery-cd212-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "app-delivery-cd212",
+  storageBucket:     "app-delivery-cd212.firebasestorage.app",
+  messagingSenderId: "850680347712",
+  appId:             "1:850680347712:web:96cd6a09ae955a18b0b3a5"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const CONFIG = {
+  ORIGIN:      '126 Robinson Rd East, Geebung QLD 4034',
+  DESTINATION: '126 Robinson Rd East, Geebung QLD 4034',
+};
+const SERVICE_COLORS = { Delivery:'#4CAF50', Repair:'#FF9800', Relocation:'#2196F3', Pickup:'#F44336' };
+
+let map, stops = [], allStops = [], markers = [];
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function dateToISO(d) { return d.toISOString().split('T')[0]; }
+const todayStr = dateToISO(new Date());
+let selectedDate = todayStr;
+
+function isoToDisplay(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-AU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+function dateDayLabel(iso) {
+  const yest = new Date(); yest.setDate(yest.getDate() - 1);
+  const tmrw = new Date(); tmrw.setDate(tmrw.getDate() + 1);
+  if (iso === todayStr)        return 'Today';
+  if (iso === dateToISO(tmrw)) return 'Tomorrow';
+  if (iso === dateToISO(yest)) return 'Yesterday';
+  return null;
+}
+
+function updateDateLabel() {
+  const dayLabel = dateDayLabel(selectedDate);
+  const full     = isoToDisplay(selectedDate);
+  document.getElementById('date-label').textContent = dayLabel ? `${dayLabel} — ${full}` : full;
+  document.getElementById('date-picker-input').value = selectedDate;
+  const todayBtn = document.getElementById('btn-today');
+  todayBtn.classList.toggle('active-today', selectedDate === todayStr);
+  todayBtn.style.cursor = selectedDate === todayStr ? 'default' : 'pointer';
+
+  const heading = dayLabel || isoToDisplay(selectedDate);
+  document.getElementById('table-heading').textContent = `${heading}'s Stops`;
+}
+
+function changeDate(delta) {
+  const d = new Date(selectedDate + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  selectedDate = dateToISO(d);
+  updateDateLabel();
+  filterAndRender();
+}
+
+function goToday() {
+  selectedDate = todayStr;
+  updateDateLabel();
+  filterAndRender();
+}
+
+function onDatePickerChange(val) {
+  if (val) { selectedDate = val; updateDateLabel(); filterAndRender(); }
+}
+
+function filterAndRender() {
+  stops = allStops
+    .filter(s => (s.date || todayStr) === selectedDate)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  updateStats();
+  renderTable();
+  updateMapMarkers();
+}
+
+// ── Map init + Firebase ───────────────────────────────────────────────────────
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 11, center: {lat:-27.39, lng:153.03},
+    mapTypeControl: false, streetViewControl: false,
+  });
+
+  db.ref('stops').on('value', snapshot => {
+    const data = snapshot.val() || {};
+    allStops = Object.entries(data)
+      .map(([key, s]) => ({ key, ...s }))
+      .filter(s => s.address);
+
+    filterAndRender();
+    document.getElementById('last-updated').textContent =
+      '🟢 Live — ' + new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:true});
+  }, err => {
+    document.getElementById('last-updated').textContent = '🔴 Connection error';
+    document.getElementById('table-container').innerHTML =
+      `<div style="color:#c62828;padding:20px;background:#ffebee;border-radius:8px">⚠️ Firebase error: ${err.message}</div>`;
+  });
+}
+
+// ── Fixed time toggle ────────────────────────────────────────────────────────
+function toggleFixedTime(cb) {
+  const picker = document.getElementById('fixed-time-picker');
+  const label  = document.getElementById('fixed-toggle-label');
+  const twEl   = document.getElementById('f-time');
+  if (cb.checked) {
+    picker.style.display = 'block';
+    label.classList.add('active');
+    twEl.value = ''; twEl.disabled = true; twEl.style.opacity = '0.4';
+  } else {
+    picker.style.display = 'none';
+    label.classList.remove('active');
+    twEl.disabled = false; twEl.style.opacity = '';
+    document.getElementById('f-fixed-time').value = '';
+  }
+}
+
+function formatDisplayTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 || 12;
+  return `${h12}:${m.toString().padStart(2,'0')} ${ampm}`;
+}
+
+// ── Add Stop Modal ───────────────────────────────────────────────────────────
+function openAddModal() {
+  ['f-name','f-address','f-phone','f-time','f-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = ''; el.classList.remove('error');
+    el.disabled = false; el.style.opacity = '';
+  });
+  document.getElementById('f-service').value  = 'Delivery';
+  document.getElementById('f-priority').value = 'Normal';
+  document.getElementById('f-duration').value = '30';
+  document.getElementById('f-fixed-checkbox').checked = false;
+  document.getElementById('f-fixed-time').value = '';
+  document.getElementById('fixed-time-picker').style.display = 'none';
+  document.getElementById('fixed-toggle-label').classList.remove('active');
+
+  const dayLabel = dateDayLabel(selectedDate) || isoToDisplay(selectedDate);
+  document.getElementById('modal-date-hint').textContent = `📅 Scheduling for: ${dayLabel}`;
+
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+async function saveStop() {
+  const name    = document.getElementById('f-name').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  let valid = true;
+  if (!name)    { document.getElementById('f-name').classList.add('error');    valid = false; }
+  if (!address) { document.getElementById('f-address').classList.add('error'); valid = false; }
+  if (!valid) return;
+
+  const isFixed   = document.getElementById('f-fixed-checkbox').checked;
+  const fixedTime = isFixed ? document.getElementById('f-fixed-time').value : '';
+
+  const stop = {
+    name, address,
+    service:   document.getElementById('f-service').value,
+    phone:     document.getElementById('f-phone').value.trim(),
+    time:      isFixed ? '' : document.getElementById('f-time').value.trim(),
+    notes:     document.getElementById('f-notes').value.trim(),
+    priority:  document.getElementById('f-priority').value,
+    duration:  parseInt(document.getElementById('f-duration').value) || 30,
+    fixed:     isFixed,
+    fixedTime: fixedTime,
+    date:      selectedDate,
+    status:    'Pending',
+    doneAt:    '',
+    cancelReason: '',
+    order:     Date.now(),
+  };
+
+  await db.ref('stops').push(stop);
+  closeAddModal();
+}
+
+// ── Stop Actions ─────────────────────────────────────────────────────────────
+async function cancelStop(key) {
+  if (!confirm('Cancel this stop? The driver will see it removed from their route.')) return;
+  await db.ref(`stops/${key}`).update({ status: 'Cancelled' });
+}
+
+async function deleteStop(key, name) {
+  if (!confirm(`Delete "${name}" permanently?`)) return;
+  await db.ref(`stops/${key}`).remove();
+}
+
+// ── Stats & Table ─────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-total').textContent     = stops.filter(s => s.status !== 'Cancelled').length;
+  document.getElementById('stat-pending').textContent   = stops.filter(s => s.status === 'Pending').length;
+  document.getElementById('stat-progress').textContent  = stops.filter(s => s.status === 'In Progress').length;
+  document.getElementById('stat-completed').textContent = stops.filter(s => s.status === 'Completed').length;
+  document.getElementById('stat-cancelled').textContent = stops.filter(s => s.status === 'Cancelled').length;
+}
+
+function renderTable() {
+  if (!stops.length) {
+    const dayLabel = dateDayLabel(selectedDate) || isoToDisplay(selectedDate);
+    document.getElementById('table-container').innerHTML =
+      `<div class="empty">No stops for ${dayLabel}.<br><br>
+       <button onclick="openAddModal()" style="background:#4CAF50;color:white;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700">➕ Add First Stop</button>
+       </div>`;
+    return;
+  }
+
+  let seq = 0;
+  const rows = stops.map(s => {
+    const svc     = (s.service || 'Delivery').toLowerCase();
+    const st      = (s.status  || 'Pending').toLowerCase().replace(' ', '-');
+    const trClass = s.status === 'Completed' ? 'completed' : s.status === 'Cancelled' ? 'cancelled' : '';
+    const num     = s.status !== 'Cancelled' ? ++seq : '—';
+    const timeCol = s.fixed && s.fixedTime
+      ? `<span class="fixed-badge">⏰ FIXED</span> ${formatDisplayTime(s.fixedTime)}`
+      : (s.time || '—');
+
+    return `
+    <tr class="${trClass}">
+      <td><strong>${num}</strong></td>
+      <td>${s.name}${s.priority === 'High' ? ' ⚡' : ''}</td>
+      <td>${s.address}</td>
+      <td><span class="service-badge badge-${svc}">${s.service}</span></td>
+      <td>${s.phone ? `<a href="tel:${s.phone}">${s.phone}</a>` : '—'}</td>
+      <td>${timeCol}</td>
+      <td><span class="status-badge status-${st}">${s.status}</span></td>
+      <td>${s.doneAt || '—'}</td>
+      <td style="white-space:nowrap">
+        ${s.status !== 'Cancelled' && s.status !== 'Completed'
+          ? `<button class="btn-cancel" onclick="cancelStop('${s.key}')">Cancel</button>` : ''}
+        <button class="btn-delete" onclick="deleteStop('${s.key}','${s.name.replace(/'/g,"\\'")}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-container').innerHTML = `
+  <table>
+    <thead><tr>
+      <th>#</th><th>Customer</th><th>Address</th><th>Service</th>
+      <th>Phone</th><th>Schedule</th><th>Status</th><th>Done At</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Map ──────────────────────────────────────────────────────────────────────
+const _geocoderCache = {};
+let _geocoderInstance = null;
+function geocodeAddress(addr) {
+  if (_geocoderCache[addr]) return Promise.resolve(_geocoderCache[addr]);
+  if (!_geocoderInstance) _geocoderInstance = new google.maps.Geocoder();
+  return new Promise(resolve => {
+    _geocoderInstance.geocode({ address: addr, region: 'AU' }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const loc = results[0].geometry.location;
+        const coords = { lat: loc.lat(), lng: loc.lng() };
+        _geocoderCache[addr] = coords;
+        resolve(coords);
+      } else { resolve(null); }
+    });
+  });
+}
+
+async function updateMapMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+  const bounds = new google.maps.LatLngBounds();
+  let seq = 0;
+
+  for (const s of stops) {
+    if (s.status === 'Cancelled') continue;
+    seq++;
+    const loc = await geocodeAddress(s.address);
+    if (!loc) continue;
+
+    const color = SERVICE_COLORS[s.service] || '#1a1a2e';
+    const marker = new google.maps.Marker({
+      position: loc, map,
+      label: { text: s.status === 'Completed' ? '✓' : String(seq), color:'white', fontWeight:'bold', fontSize:'12px' },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE, scale: 16,
+        fillColor: s.status === 'Completed' ? '#4CAF50' : (s.fixed ? '#FF9800' : color),
+        fillOpacity: 1, strokeColor: 'white', strokeWeight: 2,
+      },
+      title: `${s.name} — ${s.service}${s.fixed ? ' ⏰ FIXED' : ''}`,
+    });
+    const info = new google.maps.InfoWindow({ content:
+      `<div style="font-family:sans-serif;padding:4px">
+        <strong>${s.name}</strong><br>${s.service} · ${s.status}<br>
+        <small>${s.address}</small>
+        ${s.fixed && s.fixedTime ? `<br><strong style="color:#e65100">⏰ Fixed: ${formatDisplayTime(s.fixedTime)}</strong>` : ''}
+        ${s.phone ? `<br><a href="tel:${s.phone}">${s.phone}</a>` : ''}
+      </div>`
+    });
+    marker.addListener('click', () => info.open(map, marker));
+    markers.push(marker);
+    bounds.extend(loc);
+  }
+  if (markers.length) map.fitBounds(bounds);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+updateDateLabel();
+
+document.getElementById('add-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+
+initAddressAutocomplete();
+
+function initAddressAutocomplete() {
+  const input = document.getElementById('f-address');
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 3) { hideAddrDropdown(); return; }
+    timer = setTimeout(() => fetchAddressSuggestions(q), 350);
+  });
+  input.addEventListener('blur', () => setTimeout(hideAddrDropdown, 200));
+  input.addEventListener('keydown', e => { if (e.key === 'Escape') hideAddrDropdown(); });
+}
+
+async function fetchAddressSuggestions(query) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' Australia')}&countrycodes=au&addressdetails=0&limit=5`;
+    const r = await fetch(url, { headers: { 'Accept-Language': 'en-AU' } });
+    const data = await r.json();
+    showAddrDropdown(data);
+  } catch(e) {}
+}
+
+function showAddrDropdown(results) {
+  hideAddrDropdown();
+  if (!results.length) return;
+  const input = document.getElementById('f-address');
+  const rect  = input.getBoundingClientRect();
+  const dd = document.createElement('div');
+  dd.id = 'addr-dropdown';
+  dd.style.cssText = `position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${rect.width}px;background:white;border:1.5px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9999;max-height:220px;overflow-y:auto;`;
+  results.forEach(item => {
+    const el = document.createElement('div');
+    el.textContent = item.display_name;
+    el.style.cssText = 'padding:10px 13px;cursor:pointer;font-size:13px;color:#1a1a2e;border-bottom:1px solid #f0f0f0;line-height:1.4;';
+    el.addEventListener('mouseover', () => el.style.background = '#f5f7fa');
+    el.addEventListener('mouseout',  () => el.style.background = 'white');
+    el.addEventListener('mousedown', () => {
+      input.value = item.display_name; input.classList.remove('error'); hideAddrDropdown();
+    });
+    dd.appendChild(el);
+  });
+  document.body.appendChild(dd);
+}
+
+function hideAddrDropdown() {
+  const dd = document.getElementById('addr-dropdown');
+  if (dd) dd.remove();
+}
+</script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA9iHlDICgf0r7hJELcaLZxpjgX6jhymWU&callback=initMap" async defer></script>
+</body>
+</html>
